@@ -1,0 +1,61 @@
+#!/bin/bash
+cd ~/SingleSearching/marketplace
+source ~/.bashrc
+BASE="http://localhost:5000"
+COOKIE="$HOME/admin_cookie.txt"
+PAGE="$HOME/admin_page.html"
+clean() {
+  python3 -c "
+import re
+h=open('$PAGE').read()
+h=re.sub(r'<style.*?</style>','',h,flags=re.S)
+h=re.sub(r'<script.*?</script>','',h,flags=re.S)
+h=re.sub(r'<[^>]+>','\n',h)
+print('\n'.join([l.strip() for l in h.splitlines() if l.strip()]))
+"
+}
+CODE=$(curl -s -o /dev/null -w "%{http_code}" $BASE/admin-login || echo "000")
+if [ "$CODE" = "000" ]; then
+  pkill -9 -f "python app.py"; sleep 1
+  nohup env ADMIN_PASSWORD="$ADMIN_PASSWORD" SECRET_KEY="$SECRET_KEY" python app.py > app.log 2>&1 &
+  sleep 4
+fi
+rm -f $COOKIE $PAGE
+curl -s -c $COOKIE -b $COOKIE -d "password=$ADMIN_PASSWORD" -L $BASE/admin-login -o $PAGE
+if ! grep -q "Approve\|Admin" $PAGE; then echo "❌ LOGIN FAILED"; exit 1; fi
+echo "✅ Logged in as ADMIN"
+while true; do
+  echo ""
+  echo "===== ADMIN - PAYMENTS ====="
+  echo "1) View pending payments + KEYS"
+  echo "2) Approve by KEY"
+  echo "3) Reject by KEY"
+  echo "4) Logout & Exit"
+  printf "Choose [1-4]: "
+  read CHOICE
+  CHOICE=$(echo "$CHOICE" | tr -d ' \r\n\t')
+  echo "You typed: [$CHOICE]"
+  case "$CHOICE" in
+    1)
+      curl -s -b $COOKIE $BASE/admin -o $PAGE
+      echo "--- PENDING ---"
+      clean
+      echo ""
+      echo "--- KEYS ---"
+      grep -o 'name="key" value="[^"]*"' $PAGE | sed 's/name="key" value="//; s/"//' || echo "No pending payments - no keys"
+      ;;
+    2)
+      printf "Paste KEY to APPROVE: "; read KEY
+      curl -s -b $COOKIE --data-urlencode "action=approve" --data-urlencode "key=$KEY" $BASE/admin_action -o $PAGE
+      echo "✅ Sent APPROVE for: $KEY"
+      ;;
+    3)
+      printf "Paste KEY to REJECT: "; read KEY
+      curl -s -b $COOKIE --data-urlencode "action=reject" --data-urlencode "key=$KEY" $BASE/admin_action -o $PAGE
+      echo "❌ Sent REJECT for: $KEY"
+      ;;
+    4) curl -s -b $COOKIE $BASE/admin-logout > /dev/null; rm -f $COOKIE; echo "Logged out. Bye boss."; break;;
+    "") echo "Empty - press 1,2,3 or 4";;
+    *) echo "Invalid [$CHOICE] - use 1,2,3,4 only";;
+  esac
+done

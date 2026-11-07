@@ -10,3 +10,5 @@ test*.py
 fix.py
 add_*.py
 clean_*.py
+app.py.*
+admin/__pycache__/
