@@ -5,3 +5,8 @@ app.py.BEFORE-*
 *.BEFORE-*
 fix_*.py
 test*.py
+*.bak*
+*.OLD
+fix.py
+add_*.py
+clean_*.py
