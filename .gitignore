@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.log
+app.py.BEFORE-*
+*.BEFORE-*
+fix_*.py
+test*.py
